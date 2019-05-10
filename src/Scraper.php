@@ -111,6 +111,11 @@ class Scraper
                 $price = $attrs->filter('.c-price .c-price__price')->text();
                 $location = $attrs->filter('.c-item__attrs')->text();
 
+                if (empty($link) || empty($title)) {
+                    throw new \RuntimeException("Some mandatory attributes not parsed properly:
+                        link: '{$link}', title : '{$title}'',");
+                }
+
                 $item = new Item();
                 $item->setUrl($link)
                         ->setTitle($title)
