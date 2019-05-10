@@ -1,0 +1,12 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/** @var \Symfony\Component\Console\Application $app */
+$app = require __DIR__ . '/../src/bootstrap.php';
+
+try {
+    $app->run();
+} catch (Exception $e) {
+    echo "ERROR: ", $e->getMessage();
+    exit(1);
+}
