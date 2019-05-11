@@ -6,127 +6,121 @@ use Clue\React\Buzz\Browser;
 use Clue\React\Mq\Queue;
 use Psr\Http\Message\ResponseInterface;
 use React\EventLoop;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Wolfpup\Scraper\Model\Item;
 use Wolfpup\Scraper\Resources\IResource;
 
+
 class Scraper
 {
+
+    //TODO: load from config
+    private $config = [
+        'mysql_uri' => 'root:password@mysql:3306/bazaar',
+        'max_age' => '24h', //how old does the entry need to be for it to get rescanned
+        'concurrency' => 10,
+
+    ];
+
 
     /** @var IResource */
     private $resource;
 
-    private $categories = [];
-    private $items = [];
-    private $requests = 0;
+    /** @var string[] */
+    private $rootPages;
 
-    /**
-     * Scraper constructor.
-     * @param IResource $resource
-     */
-    public function __construct(IResource $resource)
+    /** @var OutputInterface */
+    private $out;
+
+    /** @var Queue */
+    private $requestQueue;
+
+    /** @var Storage */
+    private $storage;
+
+
+    public function __construct(IResource $resource, array $rootPages, OutputInterface $out)
     {
         $this->resource = $resource;
+        $this->rootPages = $rootPages;
+        $this->out = $out;
     }
 
-
-    public function run($concurrency = 10)
+    public function run()
     {
         $loop = EventLoop\Factory::create();
 
-        $browser = new Browser($loop);
+        $this->requestQueue = RequestQueueFactory::create($this->config['concurrency'], $loop);
+        $this->storage = new Storage($loop, $this->config['mysql_uri']);
 
-        //$this->fetchCategories($browser, $this->resource->getBaseUrl());
-
-        $urls = [
-            "https://www.sbazar.cz/210-bourana-auta/cela-cr/cena-neomezena/nejnovejsi/1",
-            "https://www.sbazar.cz/210-bourana-auta/cela-cr/cena-neomezena/nejnovejsi/2",
-        ];
-
-        $queue = new Queue($concurrency, null, function (string $url) use ($browser) {
-            return $browser->get($url);
-        });
-
-        foreach ($urls as $url) {
-            $queue($url)->then(function (ResponseInterface $response) {
-                array_push($this->items, ...$this->parseItems((string) $response->getBody()));
-            });
-        }
+        $this->pushToListsQueue(...$this->rootPages);
 
         $loop->run();
 
-        print_r($this->items);
     }
 
-    public function fetchCategories(Browser $browser, string $url) {
-        $browser->get($url)->then(
-            function(ResponseInterface $response) use ($browser) {
-                $this->requests++;
+    //-----------------------------------------------------------------------------------
 
-                $categories = $this->parseCategories((string) $response->getBody());
-
-                foreach ($categories as $category) {
-                    if (!key_exists($category[0], $this->categories)) {
-                        $this->categories[$category[0]] = $category[1];
-                        echo $this->requests . " | " . count($this->categories) . " | " . $category[1] . "\n";
-                        $this->fetchCategories($browser, $category[0]);
-                    }
-                }
-            }
-        );
-    }
-
-    public function parseCategories(string $responseBody)
+    private function pushToListsQueue(string ...$listsUrls)
     {
-        $crawler = new Crawler($responseBody);
-
-        try {
-            return $crawler->filter('a.c-categories__name')->extract(['href', '_text']);
-        } catch (\RuntimeException $e) {
-            return [];
+        foreach ($listsUrls as $url) {
+            $q = $this->requestQueue;
+            $q($url)->then(
+                function (ResponseInterface $response) use ($url) {
+                    $this->processListPage((string) $response->getBody(), $url);
+                },
+                function (\Exception $e) {
+                    $this->printError($e);
+                }
+            );
         }
     }
 
-    /**
-     * @param string $responseBody
-     * @return Item[]
-     * @throws \RuntimeException
-     */
-    public function parseItems(string $responseBody)
+    private function pushToDetailsQueue(string ...$detailsUrls)
     {
-        $crawler = new Crawler($responseBody);
-        /** @var Item[] $items */
-        $items = [];
-
-
-        $itemsCrawler = $crawler->filter('.c-item .c-item__group');
-
-        $itemsCrawler->each(
-            function (Crawler $crawler) use (&$items) {
-                $link = $crawler->filter('.c-item__link')->attr('href');
-                $title = $crawler->filter('.c-item__name-text')->text();
-                $imgUrl = $crawler->filter('.c-item__image img')->attr('src');
-
-                $attrs = $crawler->filter('.c-item__attrs')->eq(1);
-                $price = $attrs->filter('.c-price .c-price__price')->text();
-                $location = $attrs->filter('.c-item__attrs')->text();
-
-                if (empty($link) || empty($title)) {
-                    throw new \RuntimeException("Some mandatory attributes not parsed properly:
-                        link: '{$link}', title : '{$title}'',");
+        foreach ($detailsUrls as $url) {
+            $q = $this->requestQueue;
+            $q($url)->then(
+                function (ResponseInterface $response) use ($url) {
+                    $this->processDetailPage((string) $response->getBody(), $url);
+                },
+                function (\Exception $e) {
+                    $this->printError($e);
                 }
-
-                $item = new Item();
-                $item->setUrl($link)
-                        ->setTitle($title)
-                        ->setTitlePhotoUrl($imgUrl)
-                        ->setPrice($price)
-                        ->setLocation($location);
-
-                $items[] = $item;
-            }
-        );
-
-        return $items;
+            );
+        }
     }
+
+    //-----------------------------------------------------------------------------------
+
+    public function processListPage(string $responseBody, string $url)
+    {
+        $this->out->writeln("♻ Processing LIST: {$url}");
+
+        $this->pushToDetailsQueue(...$this->resource->getDetailUrls($responseBody));
+        $this->pushToListsQueue(...$this->resource->getNextListsUrls($responseBody));
+    }
+
+    public function processDetailPage(string $responseBody, string $url)
+    {
+        $this->out->writeln("♻ Processing DETAIL: {$url}");
+
+        // TODO: check storage -> promise
+
+        $item = $this->resource->parseDetailPage($responseBody);
+        //Add meta information
+        $item->resource = $this->resource->getName();
+        $item->url = $url;
+        //TODO: add dates, etc...
+
+        $this->storage->save($item);
+    }
+
+    private function printError(\Exception $e)
+    {
+        $this->out->writeln("<error>" . $e . "</error>");
+        exit(1);
+    }
+
 }

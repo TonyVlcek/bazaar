@@ -15,7 +15,8 @@
         "symfony/console": "^4.2",
         "clue/mq-react": "^1.1",
         "react/mysql": "^0.5.3",
-        "robmorgan/phinx": "^0.10.7"
+        "robmorgan/phinx": "^0.10.7",
+        "nextras/dbal": "^3.1"
     },
     "require-dev": {
         "phpstan/phpstan": "^0.11.5"

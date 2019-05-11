@@ -4,11 +4,21 @@
 namespace Wolfpup\Scraper\Resources;
 
 
+use Wolfpup\Scraper\Model\Item;
+
 interface IResource
 {
 
+    public function getName(): string;
+
     public function getBaseUrl(): string;
 
-    public function fetchCategories(): array;
+    // Processing List Page
+    public function getDetailUrls(string $listPageBody): array;
+
+    public function getNextListsUrls(string $listPageBody): array;
+
+    // Processing Detail Page
+    public function parseDetailPage(string $pageBody): Item;
 
 }

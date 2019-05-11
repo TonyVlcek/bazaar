@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ae3e30bfc124eee519bbc1b84b8fc3b0",
+    "content-hash": "2ce1b2cbcf32df0f73b0e70598d3f019",
     "packages": [
         {
             "name": "cakephp/cache",
@@ -502,6 +502,67 @@
                 "event-emitter"
             ],
             "time": "2017-07-23T21:35:13+00:00"
+        },
+        {
+            "name": "nextras/dbal",
+            "version": "v3.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/nextras/dbal.git",
+                "reference": "1da35388a665e94d2bc552482d541f2923fafa5a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/nextras/dbal/zipball/1da35388a665e94d2bc552482d541f2923fafa5a",
+                "reference": "1da35388a665e94d2bc552482d541f2923fafa5a",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=7.1"
+            },
+            "require-dev": {
+                "mockery/mockery": "~1.2",
+                "nette/caching": "~2.5 || ~3.0@rc",
+                "nette/di": "~2.4 >=2.4.10 || ~3.0@beta",
+                "nette/finder": "~2.5 || ~3.0@rc",
+                "nette/neon": "~2.4 || ~3.0@rc",
+                "nette/tester": "~2.1",
+                "nette/utils": "~2.5 || ~3.0@rc",
+                "phpstan/phpstan-shim": "0.11.1",
+                "tracy/tracy": "~2.4 || ~3.0@dev"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-master": "3.1-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Nextras\\Dbal\\": "src/"
+                },
+                "classmap": [
+                    "src/exceptions.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nextras Project",
+                    "homepage": "https://github.com/nextras/dbal/graphs/contributors"
+                }
+            ],
+            "description": "Nextras database abstraction layer",
+            "homepage": "https://github.com/nextras/dbal",
+            "keywords": [
+                "database",
+                "dbal",
+                "nextras"
+            ],
+            "time": "2019-02-11T08:58:28+00:00"
         },
         {
             "name": "psr/http-message",

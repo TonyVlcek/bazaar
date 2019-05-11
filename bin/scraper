@@ -4,9 +4,5 @@
 /** @var \Symfony\Component\Console\Application $app */
 $app = require __DIR__ . '/../src/bootstrap.php';
 
-try {
-    $app->run();
-} catch (Exception $e) {
-    echo "ERROR: ", $e->getMessage();
-    exit(1);
-}
+
+$app->run();
