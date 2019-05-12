@@ -8,10 +8,12 @@ services:
     container_name: sbazar.dev
     depends_on:
       - mysql
+    environment:
+        - SCRAPER_RESOURCE=sbazar
     env_file: .env
     volumes:
       - .:/scraper
-    command: ./bin/scraper scrape s-bazar
+    command: ./bin/scraper scrape
 
   cyklobazar:
       build:
@@ -20,10 +22,12 @@ services:
       container_name: cyklobazar.dev
       depends_on:
         - mysql
+      environment:
+        - SCRAPER_RESOURCE=cyklobazar
       env_file: .env
       volumes:
         - .:/scraper
-      command: ./bin/scraper scrape cyklo-bazar
+      command: ./bin/scraper scrape
 
   mysql:
       image: mysql:5.7

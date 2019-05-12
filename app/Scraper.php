@@ -2,27 +2,19 @@
 
 namespace Wolfpup\Scraper;
 
-use Clue\React\Buzz\Browser;
 use Clue\React\Mq\Queue;
 use Psr\Http\Message\ResponseInterface;
 use React\EventLoop;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\DomCrawler\Crawler;
-use Wolfpup\Scraper\Model\Item;
 use Wolfpup\Scraper\Resources\IResource;
+use Wolfpup\Scraper\Resources\ResourceProvider;
 
 
 class Scraper
 {
 
-    //TODO: load from config
-    private $config = [
-        'mysql_uri' => 'root:password@mysql:3306/bazaar',
-        'max_age' => '24h', //how old does the entry need to be for it to get rescanned
-        'concurrency' => 10,
-
-    ];
-
+    /** @var mixed[] */
+    private $options;
 
     /** @var IResource */
     private $resource;
@@ -31,7 +23,7 @@ class Scraper
     private $rootPages;
 
     /** @var OutputInterface */
-    private $out;
+    private $output;
 
     /** @var Queue */
     private $requestQueue;
@@ -40,19 +32,25 @@ class Scraper
     private $storage;
 
 
-    public function __construct(IResource $resource, array $rootPages, OutputInterface $out)
+    public function __construct(array $options, ResourceProvider $resourceProvider)
     {
-        $this->resource = $resource;
-        $this->rootPages = $rootPages;
-        $this->out = $out;
+        $this->options = $options;
+        $this->resource = $resourceProvider->getResource();
     }
 
-    public function run()
+    /**
+     * @param OutputInterface $output
+     * @param string[] $rootPages
+     */
+    public function run(OutputInterface $output, array $rootPages)
     {
+        $this->output = $output;
+        $this->rootPages = $rootPages;
+
         $loop = EventLoop\Factory::create();
 
-        $this->requestQueue = RequestQueueFactory::create($this->config['concurrency'], $loop);
-        $this->storage = new Storage($loop, $this->config['mysql_uri']);
+        $this->requestQueue = RequestQueueFactory::create($this->options['concurrency'], $loop);
+        $this->storage = new Storage($loop, $this->options['mysqlUri']);
 
         $this->pushToListsQueue(...$this->rootPages);
 
@@ -80,6 +78,9 @@ class Scraper
     private function pushToDetailsQueue(string ...$detailsUrls)
     {
         foreach ($detailsUrls as $url) {
+
+            //TODO: Check whether scan is even needed (url in db, max age, etc...)
+
             $q = $this->requestQueue;
             $q($url)->then(
                 function (ResponseInterface $response) use ($url) {
@@ -96,7 +97,7 @@ class Scraper
 
     public function processListPage(string $responseBody, string $url)
     {
-        $this->out->writeln("♻ Processing LIST: {$url}");
+        $this->output->writeln("♻ Processing LIST: {$url}");
 
         $this->pushToDetailsQueue(...$this->resource->getDetailUrls($responseBody));
         $this->pushToListsQueue(...$this->resource->getNextListsUrls($responseBody));
@@ -104,9 +105,9 @@ class Scraper
 
     public function processDetailPage(string $responseBody, string $url)
     {
-        $this->out->writeln("♻ Processing DETAIL: {$url}");
+        $this->output->writeln("♻ Processing DETAIL: {$url}");
 
-        // TODO: check storage -> promise
+        // TODO: check where it needs to be parsed -> ideally do this before even sending the request
 
         $item = $this->resource->parseDetailPage($responseBody);
         //Add meta information
@@ -119,8 +120,8 @@ class Scraper
 
     private function printError(\Exception $e)
     {
-        $this->out->writeln("<error>" . $e . "</error>");
-        exit(1);
+        $this->output->writeln("<error>" . $e . "</error>");
+        exit(1); //TODO throw error exception and let Symfony/Console deal with it
     }
 
 }

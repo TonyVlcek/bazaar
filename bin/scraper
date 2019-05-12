@@ -1,8 +1,8 @@
 #!/usr/bin/env php
 <?php declare(strict_types=1);
 
-/** @var \Symfony\Component\Console\Application $app */
-$app = require __DIR__ . '/../src/bootstrap.php';
+/** @var \Nette\DI\Container $container */
+$container = require __DIR__ . '/../app/bootstrap.php';
 
-
-$app->run();
+$console = $container->getByType(\Symfony\Component\Console\Application::class);
+exit($console->run());

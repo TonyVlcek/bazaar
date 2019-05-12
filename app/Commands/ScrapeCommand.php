@@ -4,12 +4,11 @@ namespace Wolfpup\Scraper\Commands;
 
 use Nextras\Dbal\Connection;
 use Nextras\Dbal\QueryException;
-use Nextras\Dbal\Result\Result;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Wolfpup\Scraper\Resources\IResource;
+use Wolfpup\Scraper\Resources\ResourceProvider;
 use Wolfpup\Scraper\Scraper;
 
 /**
@@ -28,19 +27,32 @@ use Wolfpup\Scraper\Scraper;
  *      b) URL (or collection of URLs) for next List Page
  * 3. Discovered List Pages and detail are added to their respective queues and processed
  */
-class ScrapeCommand extends Command
+final class ScrapeCommand extends Command
 {
 
     protected static $defaultName = 'scrape';
 
-    /** @var string */
+    /** @var IResource */
     private $resource;
 
     /** @var Connection */
     private $connection;
 
+    /** @var Scraper */
+    private $scraper;
+
     /** @var OutputInterface */
     private $output;
+
+
+    public function __construct(Connection $connection, ResourceProvider $resourceProvider, Scraper $scraper)
+    {
+        $this->connection = $connection;
+        $this->resource = $resourceProvider->getResource();
+        $this->scraper = $scraper;
+
+        parent::__construct();
+    }
 
 
     protected function configure()
@@ -48,7 +60,7 @@ class ScrapeCommand extends Command
         $this->setDescription('Some description')
             ->setHelp('Some Help');
 
-        $this->addArgument('resource', InputArgument::OPTIONAL, 'resource');
+        //$this->addArgument('resource', InputArgument::OPTIONAL, 'resource'); ---> only via env variable
     }
 
     /**
@@ -59,25 +71,13 @@ class ScrapeCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $this->output = $output;
-        $this->resource = $input->getArgument('resource') ?? getenv('RESOURCE');
 
-        if (!$this->resource) {
-            $output->writeln('<error>Resource not specified</error>');
-            return 1;
-        }
-
-        $this->setupConnection();
-
-
-        $output->writeln("Resource: {$this->resource}");
+        $output->writeln("Resource: {$this->resource->getName()}");
 
         $rootPages = $this->getRootPages();
-
         $output->writeln("Loaded " . count($rootPages) . " root pages.");
 
-        $resource = $this->getResourceInstanceByName();
-        $scraper = new Scraper($resource, $rootPages, $output);
-        $scraper->run();
+        $this->scraper->run($this->output, $rootPages);
 
         return 0;
     }
@@ -88,7 +88,10 @@ class ScrapeCommand extends Command
     private function getRootPages(): array
     {
         try {
-            $result = $this->connection->query("SELECT * FROM [root_pages] WHERE [resource] = %s", $this->resource);
+            $result = $this->connection->query(
+                "SELECT * FROM [root_pages] WHERE [resource] = %s",
+                $this->resource->getName()
+            );
             $urls = [];
             foreach ($result as $row) {
                 $urls[] = $row->url;
@@ -99,27 +102,6 @@ class ScrapeCommand extends Command
             $this->output->writeln('<error>' . $e . '</error>');
             exit(1);
         }
-    }
-
-    private function getResourceInstanceByName(): IResource
-    {
-        $namespace = 'Wolfpup\\Scraper\\Resources\\';
-        $className = $namespace . str_replace('-', '', ucwords($this->resource, '-')) . 'Resource';
-
-        return new $className();
-    }
-
-    private function setupConnection(): void
-    {
-        //TODO: get from env
-        //TODO: Wrap this into some class
-        $this->connection = new Connection([
-            'driver'   => 'mysqli',
-            'host'     => 'mysql',
-            'username' => 'root',
-            'password' => 'password',
-            'database' => 'bazaar',
-        ]);
     }
 
 }

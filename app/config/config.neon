@@ -1,0 +1,34 @@
+parameters:
+    scraper:                                        # TODO: This could be an extension!
+        mysqlUri: 'root:password@mysql:3306/bazaar' # TODO: use env variables (or turn Storage into service)
+        concurrency: 10                             # how many concurent requests
+        maxAge: 24h                                 # when item qualifys for a rescan
+
+extensions:
+    console: Contributte\Console\DI\ConsoleExtension(true)
+    dbal: Nextras\Dbal\Bridges\NetteDI\DbalExtension
+
+console:
+    name: Bazaar Scraper
+    version: 0.0.1
+    catchExceptions: true
+    autoExit: true
+
+dbal:
+    driver: mysqli
+    host: ::getenv(MYSQL_HOST)
+    port: ::intval(::getenv(MYSQL_PORT))
+    username: ::getenv(MYSQL_USERNAME)
+    password: ::getenv(MYSQL_PASSWORD)
+    database: ::getenv(MYSQL_DATABASE)
+
+services:
+    - Wolfpup\Scraper\Resources\ResourceProvider(::getenv(SCRAPER_RESOURCE))
+    - Wolfpup\Scraper\Scraper(%scraper%)
+
+    # Resources
+    sbazar: Wolfpup\Scraper\Resources\SBazarResource
+    cyklobazar: Wolfpup\Scraper\Resources\CykloBazarResource
+
+    # Commands
+    - Wolfpup\Scraper\Commands\ScrapeCommand
