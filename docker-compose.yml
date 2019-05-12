@@ -1,41 +1,66 @@
-version: "3.6"
+version: "2.4"
 
 services:
-  sbazar:
-    build:
-      context: .
-      dockerfile: .docker/dockerfile.php.cli
-    container_name: sbazar.dev
-    depends_on:
-      - mysql
-    environment:
-        - SCRAPER_RESOURCE=sbazar
-    env_file: .env
-    volumes:
-      - .:/scraper
-    command: ./bin/scraper scrape
-
-  cyklobazar:
-      build:
-        context: .
-        dockerfile: .docker/dockerfile.php.cli
-      container_name: cyklobazar.dev
-      depends_on:
-        - mysql
-      environment:
-        - SCRAPER_RESOURCE=cyklobazar
-      env_file: .env
-      volumes:
-        - .:/scraper
-      command: ./bin/scraper scrape
 
   mysql:
       image: mysql:5.7
       container_name: bazaar.dev
       env_file:
-        - .docker/db/db.env
+        - ./.docker/db/db.env
       volumes:
-        - .docker/db/:/docker-entrypoint-initdb.d
+        - ./.docker/db/:/docker-entrypoint-initdb.d
+        - mysql_db:/var/lib/mysql:rw
       command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
       ports:
         - 3307:3306
+
+  migrator:
+    build:
+      context: .
+      dockerfile: ./.docker/migrator/dockerfile.migrator
+    container_name: migrator.dev
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+    depends_on:
+      - mysql
+    volumes:
+      - ./.docker:/migrator/.docker
+      - ./vendor/:/migrator/vendor
+      - ./db/:/migrator/db
+      - ./phinx.yml:/migrator/phinx.yml
+    entrypoint: ["sh", "/migrator/.docker/migrator/entrypoint.sh"]
+
+  # SCRAPER SERVICES
+  # TODO: Try to use templates https://github.com/matthiasnoback/building-autonomous-services-workshop
+  sbazar:
+    build:
+      context: .
+      dockerfile: ./.docker/scraper/dockerfile.php.cli
+    container_name: sbazar.dev
+    depends_on:
+      - migrator
+    environment:
+        - SCRAPER_RESOURCE=sbazar
+    env_file: .env
+    volumes:
+      - .:/scraper
+    entrypoint: ["sh", "/scraper/.docker/scraper/entrypoint.sh"]
+
+  cyklobazar:
+      build:
+        context: .
+        dockerfile: ./.docker/scraper/dockerfile.php.cli
+      container_name: cyklobazar.dev
+      depends_on:
+        - migrator
+      environment:
+        - SCRAPER_RESOURCE=cyklobazar
+      env_file: .env
+      volumes:
+        - .:/scraper
+      entrypoint: ["sh", "/scraper/.docker/scraper/entrypoint.sh"]
+
+
+volumes:
+  mysql_db:

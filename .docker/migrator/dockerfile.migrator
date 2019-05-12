@@ -1,0 +1,7 @@
+FROM php:cli
+
+RUN docker-php-ext-install pdo_mysql
+
+RUN mkdir -p /migrator
+
+WORKDIR /migrator
