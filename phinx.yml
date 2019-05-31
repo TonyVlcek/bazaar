@@ -3,20 +3,11 @@ paths:
 
 environments:
     default_migration_table: migrations
-    default_database: in-docker
+    default_database: from-host
 
-    in-docker:
+    from-host:
         adapter: mysql
-        host: mysql
-        name: bazaar
-        user: root
-        pass: password
-        port: 3306
-        charset: utf8
-
-    host:
-        adapter: mysql
-        host: 0.0.0.0
+        host: 127.0.0.1
         name: bazaar
         user: root
         pass: password
