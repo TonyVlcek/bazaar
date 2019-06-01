@@ -1,0 +1,72 @@
+#################################
+#      DEV DOCKER-COMPOSE       #
+#################################
+
+version: "2.4"
+
+services:
+
+  mysql:
+    image: mysql:5.7
+    container_name: bazaar.dev
+    env_file:
+      - ./db/db.env
+    volumes:
+      - ./db/:/docker-entrypoint-initdb.d
+      - mysql_db:/var/lib/mysql:rw
+    command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+    ports:
+      - ${MYSQL_EXPOSED_PORT}:3306
+
+  api-php-fpm:
+    build: api-php-fpm
+    container_name: api-php-fpm.dev
+    working_dir: /api
+    env_file:
+      - api-php-fpm/.env
+    volumes:
+      - ${API_CODE_PATH}:/api
+      - ./api-php-fpm/php-ini-overrides.ini:/etc/php/7.2/fpm/conf.d/99-overrides.ini
+
+  api-webserver:
+    image: nginx:alpine
+    container_name: api-websever.dev
+    working_dir: /api
+    depends_on:
+      - api-php-fpm
+    volumes:
+      - ${API_CODE_PATH}:/api
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+     - ${NGINX_EXPOSED_PORT}:80
+
+  sbazar:
+    container_name: sbazar.dev
+    environment:
+      - SCRAPER_RESOURCE=sbazar
+    #--------------------------------------------------#
+    build: ${SCRAPER_CODE_PATH}/.docker
+    depends_on:
+      - mysql
+    env_file: ${SCRAPER_CODE_PATH}/.docker/scraper.env
+    volumes:
+      - ${SCRAPER_CODE_PATH}:/scraper
+    entrypoint: ["sh", "/scraper/.docker/entrypoint.sh"]
+
+  cyklobazar:
+    container_name: cyklobazar.dev
+    environment:
+      - SCRAPER_RESOURCE=cyklobazar
+    #--------------------------------------------------#
+    build: ${SCRAPER_CODE_PATH}/.docker
+    depends_on:
+      - mysql
+    env_file: ${SCRAPER_CODE_PATH}/.docker/scraper.env
+    volumes:
+      - ${SCRAPER_CODE_PATH}:/scraper
+    entrypoint: ["sh", "/scraper/.docker/entrypoint.sh"]
+
+volumes:
+  mysql_db:
+
+

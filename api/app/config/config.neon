@@ -1,0 +1,45 @@
+application:
+	mapping:
+		Apitte: Apitte\Presenter\*Presenter
+
+php:
+	date.timezone: UTC
+
+extensions:
+	api: Apitte\Core\DI\ApiExtension
+	dbal: Nextras\Dbal\Bridges\NetteDI\DbalExtension
+	orm: Nextras\Orm\Bridges\NetteDI\OrmExtension
+	resource: Contributte\DI\Extension\ResourceExtension
+
+api:
+	catchException: false # set to false to see exceptions in debug mode
+	debug: %debugMode%
+	plugins:
+		Apitte\Debug\DI\DebugPlugin:
+		Apitte\OpenApi\DI\OpenApiPlugin:
+
+dbal:
+	driver: mysqli
+	host: ::getenv(MYSQL_HOST)
+	port: ::intval(::getenv(MYSQL_PORT))
+	username: ::getenv(MYSQL_USERNAME)
+	password: ::getenv(MYSQL_PASSWORD)
+	database: ::getenv(MYSQL_DATABASE)
+
+orm:
+	model: App\Model\Orm\Orm
+
+resource:
+	resources:
+		App\Controllers\:
+			paths: [%appDir%/Controllers]
+			decorator:
+				inject: true
+
+
+session:
+	expiration: 14 days
+
+services:
+	router: App\RouterFactory::createRouter
+	- Apitte\Presenter\ApiPresenter
